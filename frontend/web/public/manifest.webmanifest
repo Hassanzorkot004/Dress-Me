@@ -1,0 +1,33 @@
+{
+  "id": "/",
+  "name": "DressMe — Ton studio de style",
+  "short_name": "DressMe",
+  "description": "Organise ton dressing, compose tes looks et planifie tes tenues.",
+  "lang": "fr-FR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff8fa",
+  "theme_color": "#fff8fa",
+  "icons": [
+    {
+      "src": "/dressme-pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/dressme-pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/dressme-pwa-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
