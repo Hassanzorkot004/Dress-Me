@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     # Override for S3-compatible non-AWS storage (MinIO, DigitalOcean Spaces, ...).
     # Leave unset for real AWS S3. See app/services/storage.py.
     storage_endpoint_url: str | None = None
+    # Public object URL prefix when it differs from the S3 API endpoint (Supabase).
+    storage_public_url: str | None = None
     # Explicit opt-in local-disk fallback for dev/testing without any cloud account —
     # a directory the backend process can write to; served back via StaticFiles at
     # /media (see app/main.py). Deliberately separate from "unconfigured" (leaving

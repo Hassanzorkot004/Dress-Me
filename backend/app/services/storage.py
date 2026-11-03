@@ -6,15 +6,10 @@ from app.core.config import get_settings
 
 
 class StorageService:
-    """Handles upload of wardrobe photos / generated look images to S3-compatible
-    cloud storage (real AWS S3, or MinIO/DigitalOcean Spaces/etc. via
-    storage_endpoint_url) — or, if local_storage_dir is explicitly set instead, plain
-    local disk for dev/testing without any cloud account (served via StaticFiles, see
-    app/main.py). No *implicit* fallback when neither is configured — unlike
-    Pinecone/the LLM/weather, there's no meaningful "best-effort" degradation for a
-    feature whose entire job is producing a URL; callers should check is_configured()
-    and fail clearly (see app/api/routes/wardrobe.py) rather than get back a broken
-    one.
+    """Upload images to S3-compatible cloud storage when configured.
+    If cloud credentials are absent, use local_storage_dir when explicitly set;
+    local files are served via StaticFiles (see app/main.py). No implicit fallback
+    is used when neither storage mode is configured.
     """
 
     def __init__(self) -> None:
@@ -27,20 +22,38 @@ class StorageService:
         )
 
     def upload_image(self, file_bytes: bytes, content_type: str) -> str:
+        has_access_key = bool(self.settings.aws_access_key_id)
+        has_secret_key = bool(self.settings.aws_secret_access_key)
+        if has_access_key != has_secret_key:
+            raise RuntimeError("Set both AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY for cloud storage")
+
+        # Prefer cloud storage when configured, including during local development.
+        # This lets local and hosted backends share image URLs while preserving an
+        # explicit disk-only mode when no cloud credentials are available.
+        if has_access_key and has_secret_key:
+            if (
+                self.settings.storage_endpoint_url
+                and ".storage.supabase.co" in self.settings.storage_endpoint_url
+                and not self.settings.storage_public_url
+            ):
+                raise RuntimeError(
+                    "STORAGE_PUBLIC_URL is required for Supabase Storage public buckets"
+                )
+
+            key = f"{uuid.uuid4()}"
+            client = _get_s3_client()
+            client.put_object(
+                Bucket=self.settings.storage_bucket,
+                Key=key,
+                Body=file_bytes,
+                ContentType=content_type,
+            )
+            return self._public_url(key)
+
         if self.settings.local_storage_dir:
             return self._upload_local(file_bytes, content_type)
-        if not (self.settings.aws_access_key_id and self.settings.aws_secret_access_key):
-            raise RuntimeError("Storage backend not configured (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY missing)")
 
-        key = f"{uuid.uuid4()}"
-        client = _get_s3_client()
-        client.put_object(
-            Bucket=self.settings.storage_bucket,
-            Key=key,
-            Body=file_bytes,
-            ContentType=content_type,
-        )
-        return self._public_url(key)
+        raise RuntimeError("Storage backend not configured (cloud credentials or LOCAL_STORAGE_DIR required)")
 
     def _upload_local(self, file_bytes: bytes, content_type: str) -> str:
         extension = "png" if content_type == "image/png" else "jpg"
@@ -51,6 +64,8 @@ class StorageService:
         return f"{self.settings.public_base_url.rstrip('/')}/media/{key}"
 
     def _public_url(self, key: str) -> str:
+        if self.settings.storage_public_url:
+            return f"{self.settings.storage_public_url.rstrip('/')}/{key}"
         if self.settings.storage_endpoint_url:
             return f"{self.settings.storage_endpoint_url.rstrip('/')}/{self.settings.storage_bucket}/{key}"
         return f"https://{self.settings.storage_bucket}.s3.{self.settings.aws_region}.amazonaws.com/{key}"
