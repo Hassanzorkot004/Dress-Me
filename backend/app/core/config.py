@@ -20,7 +20,11 @@ class Settings(BaseSettings):
     pinecone_api_key: str | None = None
     pinecone_index_name: str = "dressme-clothing-embeddings"
 
-    storage_bucket: str = "dressme-wardrobe"
+    storage_bucket: str = "media"
+    supabase_url: str | None = None
+    # Prefer the current sb_secret_* key; the legacy service_role JWT is also supported.
+    supabase_secret_key: str | None = Field(default=None, repr=False)
+    supabase_service_role_key: str | None = Field(default=None, repr=False)
     aws_region: str = "us-east-1"
     aws_access_key_id: str | None = None
     aws_secret_access_key: str | None = None
